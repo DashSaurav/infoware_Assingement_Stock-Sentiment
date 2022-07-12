@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 import datetime
 
-data = pd.read_csv(r'E:\assingement\stock Sentiment Analysis\Data\finance.csv')
+data = pd.read_csv(r'Data\finance.csv')
 df_ibm = pd.read_csv(r'Data\IBM_Sentiment.csv')
 df_aapl = pd.read_csv(r'Data\AAPL_Sentiment.csv')
 df_tsla = pd.read_csv(r'Data\TSLA_Sentiment.csv')
