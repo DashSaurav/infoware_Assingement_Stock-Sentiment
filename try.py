@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 import datetime
 import matplotlib.pyplot as plt
+st.set_page_config(page_title="Sentiment Analytics App",page_icon="chart_with_upwards_trend",layout="wide",initial_sidebar_state="expanded")
 
 data = pd.read_csv('finance.csv')
 df_ibm = pd.read_csv('IBM_Sentiment.csv')
