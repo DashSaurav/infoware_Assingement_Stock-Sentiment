@@ -1,212 +1,283 @@
-import pandas as pd
 import streamlit as st
-import datetime
+import hydralit_components as hc
+import networkx as nx
+import networkx.algorithms.approximation as nx_app
+import math
+import numpy as np
+import pandas as pd
+import warnings
+from geopy.exc import GeocoderTimedOut
+from geopy.geocoders import Nominatim
+import plotly.express as px
 import matplotlib.pyplot as plt
-st.set_page_config(page_title="Sentiment Analytics App",page_icon="chart_with_upwards_trend",layout="wide",initial_sidebar_state="expanded")
+warnings.filterwarnings(action = "ignore")
 
-data = pd.read_csv('finance.csv')
-df_ibm = pd.read_csv('IBM_Sentiment.csv')
-df_aapl = pd.read_csv('AAPL_Sentiment.csv')
-df_tsla = pd.read_csv('TSLA_Sentiment.csv')
-df_baba = pd.read_csv('BABA_Sentiment.csv')
-df_oracle = pd.read_csv('oracle_Sentiment.csv')
-df_amazon = pd.read_csv('amazon_Sentiment.csv')
-df_ma = pd.read_csv('ma_Sentiment.csv')
-df_microsoft = pd.read_csv('microsoft_Sentiment.csv')
-df_nike = pd.read_csv('nike_Sentiment.csv')
-df_nvda = pd.read_csv('nvda_Sentiment.csv')
+data = pd.read_csv("Superstore_sales_Data.csv")
+def sale_tot(Customer_name):
+            df = data[data["Customer Name"] == Customer_name]
+            value = sum(df["Sales"])
+            return value
+def amount_list(Customer_name):
+    df = data[data["Customer Name"] == Customer_name]
+    df = df[['Category','Sales']]
+    df = df.rename(columns = {'Sales':'Amount'})
+    value = df.groupby(['Category'])['Amount'].sum().reset_index()
+    return value
 
-df_ibm['Date'] =  pd.to_datetime(df_ibm['Date'])
-df_aapl['Date'] =  pd.to_datetime(df_aapl['Date'])
-df_tsla['Date'] =  pd.to_datetime(df_tsla['Date'])
-df_baba['Date'] =  pd.to_datetime(df_baba['Date'])
-df_oracle['Date'] =  pd.to_datetime(df_oracle['Date'])
-df_ma['Date'] =  pd.to_datetime(df_ma['Date'])
-df_microsoft['Date'] =  pd.to_datetime(df_microsoft['Date'])
-df_nike['Date'] =  pd.to_datetime(df_nike['Date'])
-df_nvda['Date'] =  pd.to_datetime(df_nvda['Date'])
-df_amazon['Date'] =  pd.to_datetime(df_amazon['Date'])
+def state_list(Customer_name):
+    df = data[data["Customer Name"] == Customer_name]
+    df = df[['State','Sales']]
+    value = df.groupby(['State'])['Sales'].sum()
+    return value
 
-st.subheader('Twitter Tweets Sentiment Analysis on Stock Data')
-st.sidebar.subheader('Selection Menu & Instructions')
-data = data.set_index('Date')
+def cat_list(Customer_name):
+    df = data[data["Customer Name"] == Customer_name]
+    df = df.rename(columns = {'Sub-Category':'Total Count'})
+    value = df["Total Count"].value_counts()
+    return value
 
-st.sidebar.info('Select a Ticker for Trend Line Chart to see Market Trend for 14 Days from the Symbol Selection Below.')
-sel_symbol = st.sidebar.selectbox('Select a Symbol for Trend Line', ('TSLA','AAPL','IBM','BABA','ORCL','NKE','AMZN','MSFT','NVDA','MA'))
-st.sidebar.info('Select a Date for Tweet Sentiment for a given Date in the graphs Right hand side.')
-sel_date = st.sidebar.date_input('Select a Date for Sentiment Count',datetime.date(2022, 6, 21))
-data = data[[sel_symbol]]
-st.write('Trend for Stock of', str(sel_symbol))
-st.line_chart(data, use_container_width=True)
+def subcat_list(Customer_name):
+    df = data[data["Customer Name"] == Customer_name]
+    df = df[['Sub-Category','Sales']]
+    # df = df.rename(columns = {'Sub-Category':'Total Count'})
+    value = df.groupby(["Sub-Category"])['Sales'].sum()
+    return value
 
-if sel_symbol == 'IBM':
-    graph_data = (df_ibm['Date'] == str(sel_date))
-    graph_data = df_ibm.loc[graph_data]
+def ship_list(Customer_name):
+    df = data[data["Customer Name"] == Customer_name]
+    df = df[['Ship Mode']]
+    df = df.rename(columns = {'Ship Mode':'Order Mode Times'})
+    value = df['Order Mode Times'].value_counts()
+    return value
 
-    bar_value = graph_data['Sentiment'].value_counts()
-    tot_count = len(graph_data['Sentiment'])
-    y = bar_value.values
-    mylabels = bar_value.index
-    plt.pie(y, labels = mylabels, autopct='%1.1f%%', startangle=90)
-    plt.savefig('pie_graph.png')
-    col = st.columns(2)
-    with col[0]:
-        st.write('Percentage Distribution')
-        st.image('pie_graph.png')
-    with col[1]:
-        st.write('Count Distribution for',str(tot_count), 'Samples')
-        st.bar_chart(bar_value, height=380)
-elif sel_symbol == 'AAPL':
-    graph_data = (df_aapl['Date'] == str(sel_date))
-    graph_data = df_aapl.loc[graph_data]
+def type_list(Customer_name):
+    df = data[data["Customer Name"] == Customer_name]
+    # df = df.rename(columns = {'Ship Mode':'Order Mode Times'})
+    value = df['Segment'].unique()
+    return value[0]
 
-    bar_value = graph_data['Sentiment'].value_counts()
-    tot_count = len(graph_data['Sentiment'])
-    y = bar_value.values
-    mylabels = bar_value.index
-    plt.pie(y, labels = mylabels, autopct='%1.1f%%', startangle=90)
-    plt.savefig('pie_graph.png')
-    col = st.columns(2)
-    with col[0]:
-        st.write('Percentage Distribution')
-        st.image('pie_graph.png')
-    with col[1]:
-        st.write('Count Distribution for',str(tot_count), 'Samples')
-        st.bar_chart(bar_value, height=380)
-elif sel_symbol == 'TSLA':
-    graph_data = (df_tsla['Date'] == str(sel_date))
-    graph_data = df_tsla.loc[graph_data]
-    bar_value = graph_data['Sentiment'].value_counts()
+def date_sale(Customer_name):
+    df = data[data["Customer Name"] == Customer_name]
+    df = df[['Order Date','Sales']]
+    df['Order Date'] = pd.to_datetime(df['Order Date'], dayfirst=True)
+    df['year'] = df['Order Date'].dt.year
+    del df['Order Date']
+    value = df.groupby(["year"])['Sales'].sum()
+    return value
 
-    tot_count = len(graph_data['Sentiment'])
-    y = bar_value.values
-    mylabels = bar_value.index
-    plt.pie(y, labels = mylabels, autopct='%1.1f%%', startangle=90)
-    plt.savefig('pie_graph.png')
-    col = st.columns(2)
-    with col[0]:
-        st.write('Percentage Distribution')
-        st.image('pie_graph.png')
-    with col[1]:
-        st.write('Count Distribution for',str(tot_count), 'Samples')
-        st.bar_chart(bar_value, height=380)
+def date_sale_month(Customer_name):
+    df = data[data["Customer Name"] == Customer_name]
+    df = df[['Order Date','Sales']]
+    df['Order Date'] = pd.to_datetime(df['Order Date'], dayfirst=True)
+    d = df['Order Date']
+    df.groupby([d.dt.year.rename('Year'), d.dt.month.rename('Month')]).sum()
+    ym_id = d.apply("{:%Y-%m}".format).rename('Order Date')
+    value = df.groupby(ym_id).sum()
+    return value
 
-elif sel_symbol == 'BABA':
-    graph_data = (df_baba['Date'] == str(sel_date))
-    graph_data = df_baba.loc[graph_data]
+# pie chart function
+def pie_graph(Customer_name):
+    df = data[data["Customer Name"] == Customer_name]
+    df = df[['Ship Mode','Sales']]
+    value = df.groupby(["Ship Mode"])['Sales'].sum().reset_index()
+    return value
 
-    bar_value = graph_data['Sentiment'].value_counts()
-    tot_count = len(graph_data['Sentiment'])
-    y = bar_value.values
-    mylabels = bar_value.index
-    plt.pie(y, labels = mylabels, autopct='%1.1f%%', startangle=90)
-    plt.savefig('pie_graph.png')
-    col = st.columns(2)
-    with col[0]:
-        st.write('Percentage Distribution')
-        st.image('pie_graph.png')
-    with col[1]:
-        st.write('Count Distribution for',str(tot_count), 'Samples')
-        st.bar_chart(bar_value, height=380)
-elif sel_symbol == 'ORCL':
-    graph_data = (df_oracle['Date'] == str(sel_date))
-    graph_data = df_oracle.loc[graph_data]
+theme_neutral = {'bgcolor': '#f9f9f9','title_color': 'blue','content_color': 'blue'}
 
-    bar_value = graph_data['Sentiment'].value_counts()
-    tot_count = len(graph_data['Sentiment'])
-    y = bar_value.values
-    mylabels = bar_value.index
-    plt.pie(y, labels = mylabels, autopct='%1.1f%%', startangle=90)
-    plt.savefig('pie_graph.png')
-    col = st.columns(2)
-    with col[0]:
-        st.write('Percentage Distribution')
-        st.image('pie_graph.png')
-    with col[1]:
-        st.write('Count Distribution for',str(tot_count), 'Samples')
-        st.bar_chart(bar_value, height=380)
-elif sel_symbol == 'NKE':
-    graph_data = (df_nike['Date'] == str(sel_date))
-    graph_data = df_nike.loc[graph_data]
+def ana():
+    sel = st.sidebar.radio("Select a Analysis Type",('By Name', 'By Products','Locations'))
 
-    bar_value = graph_data['Sentiment'].value_counts()
-    tot_count = len(graph_data['Sentiment'])
-    y = bar_value.values
-    mylabels = bar_value.index
-    plt.pie(y, labels = mylabels, autopct='%1.1f%%', startangle=90)
-    plt.savefig('pie_graph.png')
-    col = st.columns(2)
-    with col[0]:
-        st.write('Percentage Distribution')
-        st.image('pie_graph.png')
-    with col[1]:
-        st.write('Count Distribution for',str(tot_count), 'Samples')
-        st.bar_chart(bar_value, height=380)
-elif sel_symbol == 'AMZN':
-    graph_data = (df_amazon['Date'] == str(sel_date))
-    graph_data = df_amazon.loc[graph_data]
+    if sel=='By Name':
+        col = st.columns(3)
+        with col[1]:
+            sel_name = st.selectbox("Select Customer Name", data["Customer Name"].unique())
 
-    bar_value = graph_data['Sentiment'].value_counts()
-    tot_count = len(graph_data['Sentiment'])
-    y = bar_value.values
-    mylabels = bar_value.index
-    plt.pie(y, labels = mylabels, autopct='%1.1f%%', startangle=90)
-    plt.savefig('pie_graph.png')
-    col = st.columns(2)
-    with col[0]:
-        st.write('Percentage Distribution')
-        st.image('pie_graph.png')
-    with col[1]:
-        st.write('Count Distribution for',str(tot_count), 'Samples')
-        st.bar_chart(bar_value, height=380)
-elif sel_symbol == 'MSFT':
-    graph_data = (df_microsoft['Date'] == str(sel_date))
-    graph_data = df_microsoft.loc[graph_data]
+        st.sidebar.write('Segement of',sel_name, 'is', type_list(sel_name))
+        st.sidebar.subheader('Customer Lifetime Value Metric')
+        st.sidebar.info(int(sale_tot(sel_name)*len(date_sale(sel_name))))
 
-    bar_value = graph_data['Sentiment'].value_counts()
-    tot_count = len(graph_data['Sentiment'])
-    y = bar_value.values
-    mylabels = bar_value.index
-    plt.pie(y, labels = mylabels, autopct='%1.1f%%', startangle=90)
-    plt.savefig('pie_graph.png')
-    col = st.columns(2)
-    with col[0]:
-        st.write('Percentage Distribution')
-        st.image('pie_graph.png')
-    with col[1]:
-        st.write('Count Distribution for',str(tot_count), 'Samples')
-        st.bar_chart(bar_value, height=380)
-elif sel_symbol == 'NVDA':
-    graph_data = (df_nvda['Date'] == str(sel_date))
-    graph_data = df_nvda.loc[graph_data]
+        col = st.columns(2)
+        with col[0]:
+            st.write("**Category wise Total Purchase Amount in $**")
+            val = amount_list(sel_name)
+            st.write(val)
+        with col[1]:
+            # st.metric(label='Total Sale Amount',value=round(sale_tot(sel_name)))
+            hc.info_card(title='Total Sale Amount in $', content=sale_tot(sel_name),theme_override=theme_neutral)
+  
+        
+        col = st.columns(2)
+        with col[0]:
+            st.write("**Total Amount of each Item Bought**")
+            st.bar_chart(subcat_list(sel_name))
 
-    bar_value = graph_data['Sentiment'].value_counts()
-    tot_count = len(graph_data['Sentiment'])
-    y = bar_value.values
-    mylabels = bar_value.index
-    plt.pie(y, labels = mylabels, autopct='%1.1f%%', startangle=90)
-    plt.savefig('pie_graph.png')
-    col = st.columns(2)
-    with col[0]:
-        st.write('Percentage Distribution')
-        st.image('pie_graph.png')
-    with col[1]:
-        st.write('Count Distribution for',str(tot_count), 'Samples')
-        st.bar_chart(bar_value, height=380)
-elif sel_symbol == 'MA':
-    graph_data = (df_ma['Date'] == str(sel_date))
-    graph_data = df_ma.loc[graph_data]
+        # fig1, ax1 = plt.subplots()
+        # ax1.pie(subcat_list(sel_name).values, labels=subcat_list(sel_name).index, autopct='%1.1f%%',startangle=90)
+        # ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+        # st.pyplot(fig1)
 
-    bar_value = graph_data['Sentiment'].value_counts()
-    tot_count = len(graph_data['Sentiment'])
-    y = bar_value.values
-    mylabels = bar_value.index
-    plt.pie(y, labels = mylabels, autopct='%1.1f%%', startangle=90)
-    plt.savefig('pie_graph.png')
-    col = st.columns(2)
-    with col[0]:
-        st.write('Percentage Distribution')
-        st.image('pie_graph.png')
-    with col[1]:
-        st.write('Count Distribution for',str(tot_count), 'Samples')
-        st.bar_chart(bar_value, height=380)
+        with col[1]:
+            st.write('**Order Shiped to State**')
+            st.bar_chart(state_list(sel_name))
+
+        col = st.columns(2)
+        with col[0]:
+            st.write('**Year Wise Total Amount in $ by Customer**')
+            st.bar_chart(date_sale(sel_name))
+        with col[1]:
+            st.write('**Year-Month Distribution of Total Amount in $ by Customer**')
+            st.bar_chart(date_sale_month(sel_name))
+
+        st.write('**Shiping Mode Prefered by**', str(sel_name))
+        col = st.columns(2)
+        with col[0]:
+            ship_value = ship_list(sel_name)
+            st.bar_chart(ship_value, height=350)
+        plt.pie(ship_value.values, labels = ship_value.index, autopct='%1.1f%%', startangle=90)
+        plt.savefig('pie_graph.png')
+        with col[1]:
+            st.image('pie_graph.png')
+
+    elif sel=='By Products':
+        st.sidebar.subheader('Analysis By Products')
+        prod_name = st.selectbox("Select a Category Name",data["Category"].unique())
+        def sale_prod(product):
+            df = data[data["Category"] == product]
+            value = sum(df["Sales"])
+            return value
+        def prod_list(product):
+                df = data[data["Category"] == product]
+                df = df[['Product Name','Sales']]
+                df = df.rename(columns = {'Sales':'Amount'})
+                value = df.groupby(['Product Name'])['Amount'].sum().reset_index()
+                return value
+        def cat_prod_list(product):
+            df = data[data["Category"] == product]
+            df = df[['Sub-Category','Sales']]
+            df = df.rename(columns = {'Sales':'Amount'})
+            value = df.groupby(['Sub-Category'])['Amount'].sum()
+            return value
+        def cat_state_list(product):
+            df = data[data["Category"] == product]
+            df = df[['State','Sales']]
+            df = df.rename(columns = {'Sales':'Amount'})
+            value = df.groupby(['State'])['Amount'].sum()
+            return value
+        @st.cache
+        def cat_region_list(product):
+            df = data[data["Category"] == product]
+            df = df[['Region','Sales']]
+            df = df.rename(columns = {'Sales':'Amount'})
+            value = df.groupby(['Region'])['Amount'].sum()
+            return value
+
+        st.sidebar.write('Total Sale Amount On', str(prod_name))
+        st.sidebar.info(sale_prod(prod_name))
+        
+        tab1, tab2, tab3, tab4 = st.tabs(['Product List','Category Sale Value','State Sale Value','Region Sale Value'])
+        with tab1:
+            st.write('Products Name List with Amount')
+            st.write(prod_list(prod_name))
+        with tab2:
+            st.write('Category wise Sale Total Amount')
+            st.bar_chart(cat_prod_list(prod_name))
+        with tab3:
+            st.write('State wise Category Sale Division')
+            st.bar_chart(cat_state_list(prod_name))
+        with tab4:
+            st.write('Region wise Sale Division')
+            st.bar_chart(cat_region_list(prod_name))
+    elif sel=='Locations':
+        sel_name = st.selectbox("Select Customer Name", data["Customer Name"].unique())
+
+        def loc_name(Customer_name):
+            df = data[data["Customer Name"] == Customer_name]
+            value = list(df["City"].unique())
+            return value
+
+        sel = loc_name(sel_name)
+        # st.write(sel)
+
+        coordinates = []
+        def findGeocode(city):
+            # try and catch is used to overcome
+            # the exception thrown by geolocator
+            # using geocodertimedout
+            try:	
+                # Specify the user_agent as your
+                # app name it should not be none
+                geolocator = Nominatim(user_agent="your_app_name")	
+                return geolocator.geocode(city)
+            except GeocoderTimedOut:	
+                return findGeocode(city)
+
+        for i in sel:
+            if findGeocode(i) != None:
+                loc = findGeocode(i)
+                coordinates.append((loc.longitude,loc.latitude))
+            else:
+                coordinates.append((np.nan,np.nan))
+
+        # st.write('Coordinates of Selected City:',coordinates)
+
+        G = nx.Graph()
+        #Create a graph object with number of nodes same as number of cities
+        nodes = np.arange(0, len(sel))
+        G.add_nodes_from(nodes)
+        #Create a dictionary of node and coordinate of each state for positions
+        positions = {node:coordinate for node, coordinate in zip(nodes, coordinates)}
+        #Create a dictionary of node and capital for labels
+        labels = {node:capital for node, capital in zip(nodes, sel)}
+
+        for i in nodes:
+            for j in nodes:
+                if i!=j:
+                    G.add_edge(i, j)
+
+        pos = {node:list(coordinate) for node, coordinate in zip(nodes, coordinates)}
+        # st.write(pos)
+
+        H = G.copy()
+        # Calculating the distances between the nodes as edge's weight.
+        for i in range(len(pos)):
+            for j in range(i + 1, len(pos)):
+                
+                #Multidimensional Euclidean distance from the origin to a point.
+                #euclidean distance between (x1, y1) and (x2, y2) is ((x2-x1)**2 + (y2-y1)**2)**0.5
+                dist = math.hypot(pos[i][0] - pos[j][0], pos[i][1] - pos[j][1])
+                dist = dist
+                G.add_edge(i, j, weight=dist)
+        cycle = nx_app.christofides(G, weight="weight")
+
+        edge_list = list(nx.utils.pairwise(cycle))
+
+
+        #Create a dictionary of node and capital for labels
+        labels = {node:capital for node, capital in zip(nodes, sel)}
+        tsp_cycle = [labels[value] for value in cycle]
+
+        df_map = {'City':tsp_cycle}
+        df_map = pd.DataFrame(df_map) 
+
+        longitude = []
+        latitude = []
+        for i in (df_map["City"]):
+            if findGeocode(i) != None:
+                loc = findGeocode(i)
+                latitude.append(loc.latitude)
+                longitude.append(loc.longitude)
+            else:
+                latitude.append(np.nan)
+                longitude.append(np.nan)
+        df_map["latitude"] = latitude
+        df_map["longitude"] = longitude
+        # st.write(df_map)
+        # st.map(df_map)
+        # px.set_mapbox_access_token(open(".mapbox_token").read())
+        fig = px.scatter_mapbox(df_map,
+                                lat=df_map.latitude,
+                                lon=df_map.longitude,
+                                hover_name="City",
+                                zoom=1)
+        fig.update_layout(mapbox_style="stamen-terrain", mapbox_zoom=1, margin={"r":0,"t":0,"l":0,"b":0})
+        st.plotly_chart(fig, use_container_width=True)
