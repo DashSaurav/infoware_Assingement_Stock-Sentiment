@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 import datetime
 import matplotlib.pyplot as plt
+st.set_page_config(page_title='Superstore', layout='wide')
 
 data = pd.read_csv('finance.csv')
 df_ibm = pd.read_csv('IBM_Sentiment.csv')
