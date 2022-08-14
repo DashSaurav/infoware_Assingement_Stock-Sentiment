@@ -3,17 +3,17 @@ import streamlit as st
 import datetime
 import matplotlib.pyplot as plt
 
-data = pd.read_csv(r'Data\finance.csv')
-df_ibm = pd.read_csv(r'Data\IBM_Sentiment.csv')
-df_aapl = pd.read_csv(r'Data\AAPL_Sentiment.csv')
-df_tsla = pd.read_csv(r'Data\TSLA_Sentiment.csv')
-df_baba = pd.read_csv(r'Data\BABA_Sentiment.csv')
-df_oracle = pd.read_csv(r'Data\oracle_Sentiment.csv')
-df_amazon = pd.read_csv(r'Data\amazon_Sentiment.csv')
-df_ma = pd.read_csv(r'Data\ma_Sentiment.csv')
-df_microsoft = pd.read_csv(r'Data\microsoft_Sentiment.csv')
-df_nike = pd.read_csv(r'Data\nike_Sentiment.csv')
-df_nvda = pd.read_csv(r'Data\nvda_Sentiment.csv')
+data = pd.read_csv('finance.csv')
+df_ibm = pd.read_csv('IBM_Sentiment.csv')
+df_aapl = pd.read_csv('AAPL_Sentiment.csv')
+df_tsla = pd.read_csv('TSLA_Sentiment.csv')
+df_baba = pd.read_csv('BABA_Sentiment.csv')
+df_oracle = pd.read_csv('oracle_Sentiment.csv')
+df_amazon = pd.read_csv('amazon_Sentiment.csv')
+df_ma = pd.read_csv('ma_Sentiment.csv')
+df_microsoft = pd.read_csv('microsoft_Sentiment.csv')
+df_nike = pd.read_csv('nike_Sentiment.csv')
+df_nvda = pd.read_csv('nvda_Sentiment.csv')
 
 df_ibm['Date'] =  pd.to_datetime(df_ibm['Date'])
 df_aapl['Date'] =  pd.to_datetime(df_aapl['Date'])
